@@ -1,5 +1,14 @@
 # which-keyboard
 
+<p align="center">
+  <a href="./README_EN.md"><img src="https://img.shields.io/badge/English-README-red" alt="English README"></a>
+  <img src="https://img.shields.io/badge/platform-macOS-blue?logo=apple" alt="Platform: macOS">
+  <img src="https://img.shields.io/badge/zsh-5.8%2B-blue" alt="zsh 5.8+">
+  <img src="https://img.shields.io/badge/native-Objective--C-F05138" alt="Native helper: Objective-C">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?logo=open-source-initiative" alt="License: MIT"></a>
+  <a href="https://github.com/Iristack/which-keyboard/stargazers"><img src="https://img.shields.io/github/stars/Iristack/which-keyboard?style=social" alt="GitHub Stars"></a>
+</p>
+
 **在 zsh 提示符中实时显示 macOS 当前输入法。**
 
 切换输入法，标签随即更新，无需按回车或继续输入。支持左右位置、自定义标签和多行命令。
@@ -210,3 +219,7 @@ python3 tools/benchmark.py --real-switch --switches 20
 反馈问题时，请提供 macOS 与 zsh 版本、终端及主题名称、使用的输入法，以及最小复现步骤。涉及界面显示的问题，可附上已隐去个人信息的截图。
 
 提交代码前请运行 `make test`。涉及提示符重绘的改动，请一并检查多行输入、光标位置和已有主题内容是否保持正常。
+
+## 许可证
+
+本项目采用 [MIT 许可证](./LICENSE)。
