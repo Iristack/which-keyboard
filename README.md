@@ -44,7 +44,23 @@
 | Shell | zsh 5.8+；已在 Apple Silicon / zsh 5.9 上验证 |
 | 构建工具 | Xcode Command Line Tools，或包含 macOS SDK 的 Xcode |
 
-### 安装
+### 通过 Homebrew 安装（推荐）
+
+```sh
+brew tap iristack/which-keyboard https://github.com/Iristack/which-keyboard.git
+brew install iristack/which-keyboard/which-keyboard
+```
+
+在 `~/.zshrc` 的**主题初始化之后**添加：
+
+```zsh
+WHICH_KEYBOARD_POSITION=left  # 可选；默认显示在右侧
+source "$(brew --prefix)/share/which-keyboard/which-keyboard.plugin.zsh"
+```
+
+打开新终端即可使用。Homebrew 会下载带 SHA-256 校验的版本源码并在本机编译，因此仍需要上表中的构建工具；目前不提供预编译 bottle。安装会同时提供 `which-keyboard` 命令。
+
+### 从源码安装
 
 ```sh
 git clone https://github.com/Iristack/which-keyboard.git "$HOME/.local/share/which-keyboard"
@@ -71,7 +87,6 @@ source "$HOME/.local/share/which-keyboard/which-keyboard.plugin.zsh"
 
 ```zsh
 WHICH_KEYBOARD_POSITION=left
-source "$HOME/.local/share/which-keyboard/which-keyboard.plugin.zsh"
 ```
 
 加载后也可以即时切换：
@@ -93,13 +108,12 @@ typeset -A WHICH_KEYBOARD_LABELS=(
   com.apple.inputmethod.SCIM.ITABC 拼音
 )
 WHICH_KEYBOARD_POSITION=left
-source "$HOME/.local/share/which-keyboard/which-keyboard.plugin.zsh"
 ```
 
-查看本机启用的输入源及其 ID：
+查看本机启用的输入源及其 ID（源码安装使用 `./build/which-keyboard --list`）：
 
 ```sh
-"$HOME/.local/share/which-keyboard/build/which-keyboard" --list
+which-keyboard --list
 ```
 
 标签按纯文本处理，不解析颜色或其他提示符代码。加载后修改映射，运行 `which-keyboard-refresh` 即可应用。
@@ -140,7 +154,16 @@ source "$HOME/.local/share/which-keyboard/which-keyboard.plugin.zsh"
 
 ## 更新与卸载
 
-更新源码并重新编译：
+**Homebrew 安装**：
+
+```sh
+brew update
+brew upgrade which-keyboard
+```
+
+更新后打开新终端，或先执行 `which-keyboard-unload`，再重新执行 Homebrew 的 `source` 加载行。卸载软件可运行 `brew uninstall which-keyboard`，随后移除 `.zshrc` 中对应的加载行和配置。
+
+**源码安装**：更新源码并重新编译：
 
 ```sh
 git -C "$HOME/.local/share/which-keyboard" pull --ff-only

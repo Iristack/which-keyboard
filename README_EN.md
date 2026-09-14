@@ -44,7 +44,23 @@ The plugin only reads input-source state. It does not record keystrokes or switc
 | Shell | zsh 5.8+; tested on Apple Silicon with zsh 5.9 |
 | Build tools | Xcode Command Line Tools, or Xcode with the macOS SDK |
 
-### Installation
+### Install with Homebrew (Recommended)
+
+```sh
+brew tap iristack/which-keyboard https://github.com/Iristack/which-keyboard.git
+brew install iristack/which-keyboard/which-keyboard
+```
+
+Add this to `~/.zshrc`, **after your theme initialization**:
+
+```zsh
+WHICH_KEYBOARD_POSITION=left  # Optional; defaults to the right
+source "$(brew --prefix)/share/which-keyboard/which-keyboard.plugin.zsh"
+```
+
+Open a new terminal to start using the plugin. Homebrew downloads a versioned source archive, verifies its SHA-256, and builds it locally, so the build tools listed above are still required. Prebuilt bottles are not currently provided. The installation also makes the `which-keyboard` command available.
+
+### Install from Source
 
 ```sh
 git clone https://github.com/Iristack/which-keyboard.git "$HOME/.local/share/which-keyboard"
@@ -71,7 +87,6 @@ Labels appear on the right by default. Set `left` to prepend the label to your e
 
 ```zsh
 WHICH_KEYBOARD_POSITION=left
-source "$HOME/.local/share/which-keyboard/which-keyboard.plugin.zsh"
 ```
 
 You can also change the position in an active session:
@@ -93,13 +108,12 @@ typeset -A WHICH_KEYBOARD_LABELS=(
   com.apple.inputmethod.SCIM.ITABC Pinyin
 )
 WHICH_KEYBOARD_POSITION=left
-source "$HOME/.local/share/which-keyboard/which-keyboard.plugin.zsh"
 ```
 
-List the enabled input sources and their IDs:
+List enabled input sources and their IDs (for source installations, use `./build/which-keyboard --list`):
 
 ```sh
-"$HOME/.local/share/which-keyboard/build/which-keyboard" --list
+which-keyboard --list
 ```
 
 Labels are treated as plain text, not color codes or other prompt syntax. After changing a mapping in an active session, run `which-keyboard-refresh` to apply it.
@@ -140,7 +154,16 @@ Output is UTF-8, with one `ID<TAB>name<newline>` record per line. In watch mode,
 
 ## Updating and Uninstalling
 
-Update the source and rebuild:
+**Homebrew installations**:
+
+```sh
+brew update
+brew upgrade which-keyboard
+```
+
+After upgrading, open a new terminal, or run `which-keyboard-unload` followed by the Homebrew `source` line again. To uninstall, run `brew uninstall which-keyboard`, then remove the corresponding source line and settings from `.zshrc`.
+
+**Source installations**: update the source and rebuild:
 
 ```sh
 git -C "$HOME/.local/share/which-keyboard" pull --ff-only
