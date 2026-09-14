@@ -42,7 +42,37 @@ The plugin only reads input-source state. It does not record keystrokes or switc
 | --- | --- |
 | System | A local macOS desktop session |
 | Shell | zsh 5.8+; tested on Apple Silicon with zsh 5.9 |
-| Build tools | Xcode Command Line Tools, or Xcode with the macOS SDK |
+| Build tools | Source / Homebrew installs only: Xcode Command Line Tools, or Xcode with the macOS SDK |
+
+### Download Prebuilt Binaries (No Compiler Required)
+
+Download the archive for your architecture and `SHA256SUMS` from [GitHub Releases](https://github.com/Iristack/which-keyboard/releases/latest): choose `arm64` for Apple Silicon or `x86_64` for Intel.
+
+Alternatively, download and verify from your terminal:
+
+```sh
+version=v0.1.1
+archive="which-keyboard-${version}-macos-$(uname -m).tar.gz"
+curl -fLO "https://github.com/Iristack/which-keyboard/releases/download/${version}/${archive}"
+curl -fLO "https://github.com/Iristack/which-keyboard/releases/download/${version}/SHA256SUMS"
+shasum -a 256 -c SHA256SUMS --ignore-missing
+```
+
+After confirming the checksum result is `OK`, install the archive:
+
+```sh
+mkdir -p "$HOME/.local/share/which-keyboard-release"
+tar -xzf "$archive" --strip-components=1 -C "$HOME/.local/share/which-keyboard-release"
+```
+
+Add this after your theme initialization in `~/.zshrc`:
+
+```zsh
+WHICH_KEYBOARD_POSITION=left
+source "$HOME/.local/share/which-keyboard-release/which-keyboard.plugin.zsh"
+```
+
+Archives include the native helper, zsh plugin, documentation, and license. Xcode and build tools are not required. Binaries target macOS 12.0 or later and are tested on macOS 15 runners for both architectures; older systems have not been individually verified. Binaries are ad-hoc signed, not Developer ID signed or notarized by Apple, so macOS may display a security prompt.
 
 ### Install with Homebrew (Recommended)
 
@@ -234,6 +264,18 @@ The following commands briefly switch real input sources and attempt to restore 
 WK_TEST_REAL_SWITCH=1 python3 -m unittest discover -s tests -v
 python3 tools/benchmark.py --real-switch --switches 20
 ```
+
+## Automated Releases
+
+The [Release workflow](./.github/workflows/release.yml) runs when a `vMAJOR.MINOR.PATCH` tag is pushed:
+
+1. Build and test on standard `macos-15` (arm64) and `macos-15-intel` (x86_64) runners.
+2. Ad-hoc sign the binaries, package an explicit list of files, and generate SHA-256 checksums.
+3. After both builds succeed, create a draft Release, upload both archives and `SHA256SUMS`, then publish it.
+
+You can also run the workflow manually from Actions. Selecting `main` builds and tests without creating a Release. An existing published release is never overwritten. Publishing uses the automatically provided `GITHUB_TOKEN`; no additional release secrets are required.
+
+Standard runner time is free for public repositories; larger runners and excess storage have separate billing rules. This workflow uses neither larger runners nor caching, and intermediate artifacts expire after one day. See [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
 ## Contributing
 

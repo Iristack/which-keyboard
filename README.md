@@ -42,7 +42,37 @@
 | --- | --- |
 | 系统 | macOS 本地桌面会话 |
 | Shell | zsh 5.8+；已在 Apple Silicon / zsh 5.9 上验证 |
-| 构建工具 | Xcode Command Line Tools，或包含 macOS SDK 的 Xcode |
+| 构建工具 | 仅源码 / Homebrew 安装需要：Xcode Command Line Tools，或包含 macOS SDK 的 Xcode |
+
+### 下载预编译版本（无需编译）
+
+从 [GitHub Releases](https://github.com/Iristack/which-keyboard/releases/latest) 下载对应架构的压缩包和 `SHA256SUMS`：Apple Silicon 选择 `arm64`，Intel 选择 `x86_64`。
+
+也可以在终端下载、校验并解压：
+
+```sh
+version=v0.1.1
+archive="which-keyboard-${version}-macos-$(uname -m).tar.gz"
+curl -fLO "https://github.com/Iristack/which-keyboard/releases/download/${version}/${archive}"
+curl -fLO "https://github.com/Iristack/which-keyboard/releases/download/${version}/SHA256SUMS"
+shasum -a 256 -c SHA256SUMS --ignore-missing
+```
+
+确认校验结果为 `OK` 后安装：
+
+```sh
+mkdir -p "$HOME/.local/share/which-keyboard-release"
+tar -xzf "$archive" --strip-components=1 -C "$HOME/.local/share/which-keyboard-release"
+```
+
+在 `~/.zshrc` 的主题初始化之后添加：
+
+```zsh
+WHICH_KEYBOARD_POSITION=left
+source "$HOME/.local/share/which-keyboard-release/which-keyboard.plugin.zsh"
+```
+
+压缩包包含原生程序、zsh 插件、文档和许可证，不需要 Xcode 或编译工具。二进制以 macOS 12.0 为最低构建目标，在 macOS 15 的两种架构 runner 上测试；未逐一验证旧版系统。采用 ad-hoc 签名，尚未使用 Developer ID 证书签名或 Apple 公证，macOS 可能提示安全检查。
 
 ### 通过 Homebrew 安装（推荐）
 
@@ -234,6 +264,18 @@ python3 tools/benchmark.py
 WK_TEST_REAL_SWITCH=1 python3 -m unittest discover -s tests -v
 python3 tools/benchmark.py --real-switch --switches 20
 ```
+
+## 自动发布
+
+[Release 工作流](./.github/workflows/release.yml) 在推送 `vMAJOR.MINOR.PATCH` 标签时运行：
+
+1. 在标准 `macos-15`（arm64）和 `macos-15-intel`（x86_64）runner 上分别构建、测试。
+2. 对二进制进行 ad-hoc 签名，按固定文件清单打包，生成 SHA-256 校验值。
+3. 两个构建均成功后创建草稿 Release，上传两个压缩包和 `SHA256SUMS`，再公开发布。
+
+可在 Actions 页面手动运行；选择 `main` 只构建和测试，不创建 Release。已公开的同名 Release 不会被覆盖。流程使用自动提供的 `GITHUB_TOKEN`，无需额外配置发布密钥。
+
+公开仓库使用标准 runner 的运行时间免费；larger runner 和超额存储适用各自的计费规则。此工作流不使用 larger runner 或缓存，中间构建产物保留 1 天。参见 [GitHub Actions 计费说明](https://docs.github.com/en/billing/concepts/product-billing/github-actions)。
 
 ## 参与贡献
 
