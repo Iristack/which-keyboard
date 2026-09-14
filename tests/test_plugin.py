@@ -175,6 +175,51 @@ class PluginTests(unittest.TestCase):
         s.send('which-keyboard-unload; print -r -- RIGHT:${RPROMPT}:${RPROMPT2}\n')
         s.expect(b'RIGHT:BASE:SECOND\r\n')
 
+    def test_external_prompt_wrapper_does_not_accumulate_input_labels(self):
+        s = self.shell
+        s.send('WHICH_KEYBOARD_POSITION=left; which-keyboard-refresh\n')
+        s.drain()
+        # Terminal integrations wrap the current PS1 with nonprinting OSC
+        # markers; environment managers similarly prepend their environment.
+        s.send("PROMPT=$'%{\\e]133;A\\a%}'\"(base) $PROMPT\"\n")
+        s.drain()
+        s.event('test.pinyin\tPinyin – Simplified\n'.encode())
+        s.expect('[Pinyin – Simplified]'.encode())
+        s.send('print -r -- SNAPSHOT:$PROMPT:ENDSNAPSHOT\n')
+        s.expect(b':ENDSNAPSHOT\r\n')
+        snapshot = s.output.split(b'\r\nSNAPSHOT:', 1)[1].split(b':ENDSNAPSHOT\r\n', 1)[0]
+        self.assertEqual(snapshot.count('[Pinyin – Simplified]'.encode()), 1)
+        self.assertNotIn(b'[ABC]', snapshot)
+        self.assertIn(b'(base)', snapshot)
+
+    def test_cached_prompt_and_repeated_wrappers_keep_one_indicator(self):
+        s = self.shell
+        s.send('WHICH_KEYBOARD_POSITION=left; which-keyboard-refresh; SAVED=$PROMPT\n')
+        s.drain()
+        s.event(b'new\tNew\n')
+        s.expect(b'[New]')
+        s.send('PROMPT="(base) $SAVED"; which-keyboard-refresh; PROMPT="wrapped $PROMPT"; which-keyboard-refresh\n')
+        s.drain()
+        s.send('print -r -- SNAPSHOT:$PROMPT:ENDSNAPSHOT\n')
+        s.expect(b':ENDSNAPSHOT\r\n')
+        snapshot = s.output.split(b'\r\nSNAPSHOT:', 1)[1].split(b':ENDSNAPSHOT\r\n', 1)[0]
+        self.assertEqual(snapshot.count(b'[New]'), 1)
+        self.assertNotIn(b'[ABC]', snapshot)
+        self.assertIn(b'wrapped (base) WK> ', snapshot)
+
+    def test_unload_preserves_external_changes_and_literal_labels(self):
+        s = self.shell
+        s.send("PROMPT='[ABC] WK> '; PROMPT2='MORE> '; RPROMPT2='SECOND'; WHICH_KEYBOARD_POSITION=left; which-keyboard-refresh\n")
+        s.drain()
+        # Unload immediately after external edits, before any precmd hook.
+        s.send('PROMPT="env $PROMPT"; PROMPT2="env $PROMPT2"; which-keyboard-unload; print -r -- RESTORED:$PROMPT:$PROMPT2\n')
+        s.expect(b'RESTORED:env [ABC] WK> :env MORE> \r\n')
+
+    def test_right_prompt_wrappers_survive_unload(self):
+        s = self.shell
+        s.send("RPROMPT2='SECOND'; which-keyboard-refresh; RPROMPT=\"env $RPROMPT\"; RPROMPT2=\"env $RPROMPT2\"; which-keyboard-refresh; which-keyboard-unload; print -r -- RESTORED:$RPROMPT:$RPROMPT2\n")
+        s.expect(b'RESTORED:env BASE:env SECOND\r\n')
+
     def test_helper_death_removes_indicator_and_restarts_next_line(self):
         s = self.shell
         pid = int(s.pid_file.read_text())

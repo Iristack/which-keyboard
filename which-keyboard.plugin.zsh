@@ -11,24 +11,50 @@ zmodload zsh/system || return 1
 autoload -Uz add-zsh-hook add-zle-hook-widget
 
 typeset -g _WK_LOADED=1 _WK_PENDING='' _WK_BASE_RPROMPT=${RPROMPT-}
-typeset -g _WK_RENDERED_RPROMPT=${RPROMPT-}
-typeset -g _WK_BASE_RPROMPT2=${RPROMPT2-} _WK_RENDERED_RPROMPT2=${RPROMPT2-}
-typeset -g _WK_BASE_PROMPT=${PROMPT-} _WK_RENDERED_PROMPT=${PROMPT-}
-typeset -g _WK_BASE_PROMPT2=${PROMPT2-} _WK_RENDERED_PROMPT2=${PROMPT2-}
+typeset -g _WK_BASE_RPROMPT2=${RPROMPT2-}
+typeset -g _WK_BASE_PROMPT=${PROMPT-}
+typeset -g _WK_BASE_PROMPT2=${PROMPT2-}
 typeset -gi _WK_FD=-1 _WK_PID=0
 typeset -g WHICH_KEYBOARD_INPUT_SOURCE_ID='' WHICH_KEYBOARD_INPUT_SOURCE_NAME=''
 typeset -g WHICH_KEYBOARD_LABEL=''
 (( ${+WHICH_KEYBOARD_LABELS} )) || typeset -gA WHICH_KEYBOARD_LABELS
 
+# Empty nonprinting prompt groups delimit only our own text. They emit no
+# terminal bytes, survive PS1 wrappers/cached snapshots, and cannot be confused
+# with an environment name or another component's visible [label].
+typeset -g _WK_MARKER_BEGIN='%{%}%{%}' _WK_MARKER_END='%{%}%{%}%{%}'
+
+_wk_strip_indicator() {
+  emulate -L zsh
+  local remaining=$1 before after
+  REPLY=''
+  while [[ $remaining == *"$_WK_MARKER_BEGIN"* ]]; do
+    before=${remaining%%"$_WK_MARKER_BEGIN"*}
+    after=${remaining#*"$_WK_MARKER_BEGIN"}
+    # Leave an incomplete marker alone instead of deleting unrelated content.
+    [[ $after == *"$_WK_MARKER_END"* ]] || break
+    REPLY+=$before
+    remaining=${after#*"$_WK_MARKER_END"}
+  done
+  REPLY+=$remaining
+}
+
 _wk_render() {
   emulate -L zsh
   local before_prompt=${PROMPT-} before_prompt2=${PROMPT2-}
   local before_rprompt=${RPROMPT-} before_rprompt2=${RPROMPT2-}
-  # A theme may have replaced a prompt since the previous update.
-  [[ ${PROMPT-} == $_WK_RENDERED_PROMPT ]] || _WK_BASE_PROMPT=${PROMPT-}
-  [[ ${PROMPT2-} == $_WK_RENDERED_PROMPT2 ]] || _WK_BASE_PROMPT2=${PROMPT2-}
-  [[ ${RPROMPT-} == $_WK_RENDERED_RPROMPT ]] || _WK_BASE_RPROMPT=${RPROMPT-}
-  [[ ${RPROMPT2-} == $_WK_RENDERED_RPROMPT2 ]] || _WK_BASE_RPROMPT2=${RPROMPT2-}
+  local REPLY
+  # Derive the base from current prompts, removing our marked segment even
+  # when a terminal integration or environment manager has wrapped it, or
+  # restored a cached prompt containing an older input-source label.
+  _wk_strip_indicator "${PROMPT-}"
+  _WK_BASE_PROMPT=$REPLY
+  _wk_strip_indicator "${PROMPT2-}"
+  _WK_BASE_PROMPT2=$REPLY
+  _wk_strip_indicator "${RPROMPT-}"
+  _WK_BASE_RPROMPT=$REPLY
+  _wk_strip_indicator "${RPROMPT2-}"
+  _WK_BASE_RPROMPT2=$REPLY
   # Restore all bases first so changing sides cannot leave a duplicate label.
   typeset -g PROMPT=$_WK_BASE_PROMPT PROMPT2=$_WK_BASE_PROMPT2
   typeset -g RPROMPT=$_WK_BASE_RPROMPT RPROMPT2=$_WK_BASE_RPROMPT2
@@ -43,17 +69,13 @@ _wk_render() {
       label=${label//\`/\\\`}
     fi
     if [[ ${WHICH_KEYBOARD_POSITION:-right} == left ]]; then
-      typeset -g PROMPT="%F{cyan}[${label}]%f ${_WK_BASE_PROMPT}"
-      typeset -g PROMPT2="%F{cyan}[${label}]%f ${_WK_BASE_PROMPT2}"
+      typeset -g PROMPT="${_WK_MARKER_BEGIN}%F{cyan}[${label}]%f ${_WK_MARKER_END}${_WK_BASE_PROMPT}"
+      typeset -g PROMPT2="${_WK_MARKER_BEGIN}%F{cyan}[${label}]%f ${_WK_MARKER_END}${_WK_BASE_PROMPT2}"
     else
-      typeset -g RPROMPT="${_WK_BASE_RPROMPT}${_WK_BASE_RPROMPT:+ }%F{cyan}[${label}]%f"
-      typeset -g RPROMPT2="${_WK_BASE_RPROMPT2}${_WK_BASE_RPROMPT2:+ }%F{cyan}[${label}]%f"
+      typeset -g RPROMPT="${_WK_BASE_RPROMPT}${_WK_MARKER_BEGIN}${_WK_BASE_RPROMPT:+ }%F{cyan}[${label}]%f${_WK_MARKER_END}"
+      typeset -g RPROMPT2="${_WK_BASE_RPROMPT2}${_WK_MARKER_BEGIN}${_WK_BASE_RPROMPT2:+ }%F{cyan}[${label}]%f${_WK_MARKER_END}"
     fi
   fi
-  _WK_RENDERED_PROMPT=$PROMPT
-  _WK_RENDERED_PROMPT2=$PROMPT2
-  _WK_RENDERED_RPROMPT=$RPROMPT
-  _WK_RENDERED_RPROMPT2=$RPROMPT2
   # Only ask ZLE to re-expand a theme when the visible prompt actually changes.
   [[ $before_prompt != $PROMPT || $before_prompt2 != $PROMPT2 ||
      $before_rprompt != $RPROMPT || $before_rprompt2 != $RPROMPT2 ]]
@@ -165,14 +187,19 @@ which-keyboard-refresh() {
 
 which-keyboard-unload() {
   emulate -L zsh
+  local REPLY
   _wk_disconnect
   add-zle-hook-widget -d line-init _wk_line_init
   add-zsh-hook -d precmd _wk_precmd
   add-zsh-hook -d zshexit _wk_disconnect
-  [[ ${PROMPT-} == $_WK_RENDERED_PROMPT ]] && typeset -g PROMPT=$_WK_BASE_PROMPT
-  [[ ${PROMPT2-} == $_WK_RENDERED_PROMPT2 ]] && typeset -g PROMPT2=$_WK_BASE_PROMPT2
-  [[ ${RPROMPT-} == $_WK_RENDERED_RPROMPT ]] && typeset -g RPROMPT=$_WK_BASE_RPROMPT
-  [[ ${RPROMPT2-} == $_WK_RENDERED_RPROMPT2 ]] && typeset -g RPROMPT2=$_WK_BASE_RPROMPT2
+  _wk_strip_indicator "${PROMPT-}"
+  typeset -g PROMPT=$REPLY
+  _wk_strip_indicator "${PROMPT2-}"
+  typeset -g PROMPT2=$REPLY
+  _wk_strip_indicator "${RPROMPT-}"
+  typeset -g RPROMPT=$REPLY
+  _wk_strip_indicator "${RPROMPT2-}"
+  typeset -g RPROMPT2=$REPLY
   unset _WK_LOADED
   WHICH_KEYBOARD_INPUT_SOURCE_ID=''
   WHICH_KEYBOARD_INPUT_SOURCE_NAME=''
